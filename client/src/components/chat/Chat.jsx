@@ -42,6 +42,10 @@ function Chat({ chats }) {
       const res = await apiRequest.post("/messages/" + chat.id, { text });
       setChat((prev) => ({ ...prev, messages: [...prev.messages, res.data] }));
       e.target.reset();
+      if (!chat.receiver) {
+        console.warn("Cannot send message: no receiver");
+        return;
+      }
       socket.emit("sendMessage", {
         receiverId: chat.receiver.id,
         data: res.data,
@@ -87,11 +91,20 @@ function Chat({ chats }) {
                   ? "white"
                   : "#fecd514e",
             }}
-            onClick={() => handleOpenChat(c.id, c.receiver)}
+            onClick={() => c.receiver && handleOpenChat(c.id, c.receiver)}
           >
-            <img src={c.receiver.avatar || "/noavatar.jpg"} alt="" />
-            <span>{c.receiver.username}</span>
-            <p>{c.lastMessage}</p>
+            {c.receiver ? (
+              <>
+                <img src={c.receiver.avatar || "/noavatar.jpg"} alt="" />
+                <span>{c.receiver.username}</span>
+              </>
+            ) : (
+              <>
+                <img src="/noavatar.jpg" alt="" />
+                <span>Unknown user</span>
+              </>
+            )}
+            <p>{c.lastMessage || ""}</p>
           </div>
         ))}
       </div>
@@ -99,36 +112,42 @@ function Chat({ chats }) {
         <div className="chatBox">
           <div className="top">
             <div className="user">
-              <img src={chat.receiver.avatar || "noavatar.jpg"} alt="" />
-              {chat.receiver.username}
+              <img src={chat.receiver?.avatar || "/noavatar.jpg"} alt="" />
+              {chat.receiver?.username || "John Doe"}
             </div>
             <span className="close" onClick={() => setChat(null)}>
               X
             </span>
           </div>
           <div className="center">
-            {chat.messages.map((message) => (
-              <div
-                className="chatMessage"
-                style={{
-                  alignSelf:
-                    message.userId === currentUser.id
-                      ? "flex-end"
-                      : "flex-start",
-                  textAlign:
-                    message.userId === currentUser.id ? "right" : "left",
-                }}
-                key={message.id}
-              >
-                <p>{message.text}</p>
-                <span>{format(message.createdAt)}</span>
+            {chat.messages && chat.messages.length > 0 ? (
+              chat.messages.map((message) => (
+                <div
+                  className="chatMessage"
+                  style={{
+                    alignSelf:
+                      message.userId === currentUser.id
+                        ? "flex-end"
+                        : "flex-start",
+                    textAlign:
+                      message.userId === currentUser.id ? "right" : "left",
+                  }}
+                  key={message.id}
+                >
+                  <p>{message.text}</p>
+                  <span>{format(message.createdAt)}</span>
+                </div>
+              ))
+            ) : (
+              <div style={{ textAlign: "center", padding: "1rem" }}>
+                No messages yet.
               </div>
-            ))}
+            )}
             <div ref={messageEndRef}></div>
           </div>
           <form onSubmit={handleSubmit} className="bottom">
             <textarea name="text"></textarea>
-            <button>Send</button>
+            <button type="submit">Send</button>
           </form>
         </div>
       )}

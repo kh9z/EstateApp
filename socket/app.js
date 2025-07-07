@@ -12,6 +12,8 @@ const addUser = (userId, socketId) => {
   const userExists = onlineUser.find((user) => user.userId === userId);
   if (!userExists) {
     onlineUser.push({ userId, socketId });
+    console.log("User connected:", { userId, socketId });
+    console.log("Online users:", onlineUser);
   }
 };
 
@@ -26,7 +28,6 @@ const getUser = (userId) => {
 io.on("connection", (socket) => {
   socket.on("newUser", (userId) => {
     addUser(userId, socket.id);
-    console.log(onlineUser)
   });
 
   socket.on("sendMessage", ({ receiverId, data }) => {

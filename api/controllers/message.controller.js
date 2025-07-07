@@ -6,7 +6,7 @@ export const addMessage = async (req, res) => {
   const text = req.body.text;
 
   try {
-    const chat = await prisma.chat.findFirst({
+    const chat = await prisma.chat.findUnique({
       where: {
         id: chatId,
         userIDs: {
@@ -30,7 +30,7 @@ export const addMessage = async (req, res) => {
         id: chatId,
       },
       data: {
-        seenBy: {push: tokenUserId},
+        seenBy: [tokenUserId],
         lastMessage: text,
       },
     });
