@@ -86,6 +86,7 @@ export const getChat = async (req, res) => {
 export const addChat = async (req, res) => {
   const tokenUserId = req.userId;
   const receiverId = req.body.receiverId;
+  // console.log("addChat → tokenUserId:", tokenUserId, "receiverId:", receiverId);
 
   if (!receiverId || receiverId === tokenUserId) {
     // return res.status(400).json({ message: "Invalid receiverId" });
@@ -93,7 +94,7 @@ export const addChat = async (req, res) => {
       message: "Invalid receiverId",
       details: {
         tokenUserId,
-        receiverId: req.body.receiverId,
+        receiverId,
       },
     });
   }
@@ -102,6 +103,9 @@ export const addChat = async (req, res) => {
     const newChat = await prisma.chat.create({
       data: {
         userIDs: [tokenUserId, receiverId],
+        users: {
+          connect: [{ id: tokenUserId }, { id: receiverId }],
+        },
       },
     });
     res.status(200).json(newChat);
