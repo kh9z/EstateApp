@@ -29,47 +29,35 @@ export const getPosts = async (req, res) => {
 
 export const getPost = async (req, res) => {
   const id = req.params.id;
+
   try {
+    // Перевірка валідності ObjectId для MongoDB
+    const isValidObjectId = /^[0-9a-fA-F]{24}$/.test(id);
+    if (!isValidObjectId) {
+      return res.status(400).json({ message: "Invalid post ID format" });
+    }
+
     const post = await prisma.post.findUnique({
       where: { id },
       include: {
         postDetail: true,
         user: {
-          select: {
-            username: true,
-            avatar: true,
-          },
+          select: { username: true, avatar: true },
         },
       },
     });
 
-    const token = req.cookies?.token;
-
-    if (token) {
-      jwt.verify(token, process.env.JWT_SECRET_KEY, async (err, payload) => {
-        if (err) {
-          return res.status(200).json({ ...post, isSaved: false }); // токен не валідний
-        }
-
-        const saved = await prisma.savedPost.findUnique({
-          where: {
-            userId_postId: {
-              postId: id,
-              userId: payload.id,
-            },
-          },
-        });
-
-        return res.status(200).json({ ...post, isSaved: !!saved });
-      });
-    } else {
-      return res.status(200).json({ ...post, isSaved: false }); // немає токена
+    if (!post) {
+      return res.status(404).json({ message: "Post not found" });
     }
+
+    res.status(200).json(post);
   } catch (err) {
     console.log(err);
-    return res.status(500).json({ message: "Failed to get post" });
+    res.status(500).json({ message: "Failed to get post" });
   }
 };
+
 
 
 export const addPost = async (req, res) => {
@@ -94,13 +82,43 @@ export const addPost = async (req, res) => {
 };
 
 export const updatePost = async (req, res) => {
+  const id = req.params.id;
+  const tokenUserId = req.userId;
+  const { postData, postDetail } = req.body;
+
   try {
-    res.status(200).json();
+    // Знаходимо пост
+    const post = await prisma.post.findUnique({
+      where: { id },
+      include: { postDetail: true },
+    });
+
+    if (!post) {
+      return res.status(404).json({ message: "Post not found" });
+    }
+
+    if (post.userId !== tokenUserId) {
+      return res.status(403).json({ message: "Not Authorized!" });
+    }
+
+    const updatedPost = await prisma.post.update({
+      where: { id },
+      data: {
+        ...postData,
+        postDetail: post.postDetail
+          ? { update: postDetail }
+          : { create: postDetail },
+      },
+      include: { postDetail: true },
+    });
+
+    res.status(200).json(updatedPost);
   } catch (err) {
     console.log(err);
-    res.status(500).json({ message: "Failed to update posts" });
+    res.status(500).json({ message: "Failed to update post" });
   }
 };
+
 
 export const deletePost = async (req, res) => {
   const id = req.params.id;
@@ -109,12 +127,20 @@ export const deletePost = async (req, res) => {
   try {
     const post = await prisma.post.findUnique({
       where: { id },
+      include: { postDetail: true },
     });
 
-    if (post.userId !== tokenUserId) {
-      return res.status(403).json({ message: "Not Authorized!" });
+    if (!post) {
+      return res.status(404).json({ message: "Post not found" });
     }
-
+    if (post.userId !== tokenUserId) {
+      return res.status(403).json({ message: "Not Authorized! Or you are not the owner of this post" });
+    }
+    if (post.postDetail) {
+      await prisma.postDetail.delete({
+        where: { id: post.postDetail.id },
+      });
+    }
     await prisma.post.delete({
       where: { id },
     });
